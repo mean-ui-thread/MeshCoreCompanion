@@ -63,12 +63,40 @@ class UITask : public AbstractUITask {
 
   void setCurrScreen(UIScreen* c);
 
+  // will be overridden by main.cpp and called to get the current transport mode label to put onto the display (e.g. "BLE", "USB", "WiFi")
+  static const char* defaultGetTransportModeLabel()
+  {
+    return "Unknown";
+  }
+
+  // will be overridden by main.cpp and called to cycle between BLE/USB/WiFi modes
+  static bool defaultCycleTransportMode() {
+    return false;
+  }
+
 public:
+  typedef const char* (*GetTransportModeLabelFn)();
+  typedef bool (*CycleTransportModeFn)();
+
+  GetTransportModeLabelFn getTransportModeLabel;
+  CycleTransportModeFn cycleTransportMode;
+
+  // This is to override the default transport mode handlers with the ones from main.cpp, which have access to
+  // the actual transport mode state. This allows the UITask to display the current transport mode and also to
+  // trigger cycling through transport modes when the user performs a long press on the button. I know it's
+  // a bit hacky to have the UITask depend on functions defined in main.cpp, but it avoids having to pass
+  // transport mode state around everywhere.
+  void setTransportModeHandlers(GetTransportModeLabelFn get_label, CycleTransportModeFn cycle_mode) {
+    getTransportModeLabel = get_label ? get_label : defaultGetTransportModeLabel;
+    cycleTransportMode = cycle_mode ? cycle_mode : defaultCycleTransportMode;
+  }
 
   UITask(mesh::MainBoard* board, BaseSerialInterface* serial) : AbstractUITask(board, serial), _display(NULL), _sensors(NULL) {
     next_batt_chck = _next_refresh = 0;
     ui_started_at = 0;
     curr = NULL;
+    getTransportModeLabel = defaultGetTransportModeLabel;
+    cycleTransportMode = defaultCycleTransportMode;
   }
   void begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* node_prefs);
 

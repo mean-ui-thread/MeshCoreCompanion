@@ -1,8 +1,9 @@
 #include "UITask.h"
 #include <helpers/TxtDataHelpers.h>
+#include <helpers/PlatformSupport.h>
 #include "../MyMesh.h"
 #include "target.h"
-#ifdef WIFI_SSID
+#if SUPPORT_WIFI
   #include <WiFi.h>
 #endif
 
@@ -80,7 +81,7 @@ class HomeScreen : public UIScreen {
     FIRST,
     RECENT,
     RADIO,
-    BLUETOOTH,
+    INTERFACE,
     ADVERT,
 #if ENV_INCLUDE_GPS == 1
     GPS,
@@ -209,23 +210,32 @@ public:
       sprintf(tmp, "MSG: %d", _task->getMsgCount());
       display.drawTextCentered(display.width() / 2, 20, tmp);
 
-      #ifdef WIFI_SSID
+      #if SUPPORT_WIFI
+      // Only display the IP address if we're in WiFi mode, to avoid confusion when in BLE mode (where IP is not relevant)
+      if (strcmp(_task->getTransportModeLabel(), "WiFi") == 0) {
         IPAddress ip = WiFi.localIP();
         snprintf(tmp, sizeof(tmp), "IP: %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
         display.setTextSize(1);
         display.drawTextCentered(display.width() / 2, 54, tmp); 
+      }
       #endif
       if (_task->hasConnection()) {
         display.setColor(DisplayDriver::GREEN);
         display.setTextSize(1);
         display.drawTextCentered(display.width() / 2, 43, "< Connected >");
 
-      } else if (the_mesh.getBLEPin() != 0) { // BT pin
+      #if SUPPORT_BLE
+      // Only display the BLE PIN if 
+      // 1. we're NOT connected, and 
+      // 2. We're in BLE mode
+      // This is to avoid confusion when in WiFi mode (where BLE PIN is not relevant)
+      } else if (strcmp(_task->getTransportModeLabel(), "BLE") == 0 && the_mesh.getBLEPin() != 0) { // BT pin
         display.setColor(DisplayDriver::RED);
         display.setTextSize(2);
         sprintf(tmp, "Pin:%d", the_mesh.getBLEPin());
         display.drawTextCentered(display.width() / 2, 43, tmp);
       }
+      #endif
     } else if (_page == HomePage::RECENT) {
       the_mesh.getRecentlyHeard(recent, UI_RECENT_LIST_SIZE);
       display.setColor(DisplayDriver::GREEN);
@@ -270,13 +280,16 @@ public:
       display.setCursor(0, 53);
       sprintf(tmp, "Noise floor: %d", radio_driver.getNoiseFloor());
       display.print(tmp);
-    } else if (_page == HomePage::BLUETOOTH) {
+    } else if (_page == HomePage::INTERFACE) {
       display.setColor(DisplayDriver::GREEN);
-      display.drawXbm((display.width() - 32) / 2, 18,
-          _task->isSerialEnabled() ? bluetooth_on : bluetooth_off,
-          32, 32);
       display.setTextSize(1);
-      display.drawTextCentered(display.width() / 2, 64 - 11, "toggle: " PRESS_LABEL);
+      display.drawTextCentered(display.width() / 2, 20, "Interface");
+      display.setTextSize(2);
+      display.drawTextCentered(display.width() / 2, 34, _task->getTransportModeLabel());
+#if SUPPORT_WIFI || SUPPORT_BLE
+      display.setTextSize(1);
+      display.drawTextCentered(display.width() / 2, 64 - 11, "switch: " PRESS_LABEL);
+#endif
     } else if (_page == HomePage::ADVERT) {
       display.setColor(DisplayDriver::GREEN);
       display.drawXbm((display.width() - 32) / 2, 18, advert_icon, 32, 32);
@@ -417,11 +430,14 @@ public:
       }
       return true;
     }
-    if (c == KEY_ENTER && _page == HomePage::BLUETOOTH) {
-      if (_task->isSerialEnabled()) {  // toggle Bluetooth on/off
-        _task->disableSerial();
+    if (c == KEY_ENTER && _page == HomePage::INTERFACE) {
+      if (_task->cycleTransportMode()) {
+        _task->notify(UIEventType::ack);
+        char msg[32];
+        snprintf(msg, sizeof(msg), "Interface: %s", _task->getTransportModeLabel());
+        _task->showAlert(msg, 900);
       } else {
-        _task->enableSerial();
+        _task->showAlert("No other mode", 800);
       }
       return true;
     }
