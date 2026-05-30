@@ -19,8 +19,10 @@
   #include <helpers/ui/GenericVibration.h>
 #endif
 
-#include "../AbstractUITask.h"
-#include "../NodePrefs.h"
+#include "AbstractUITask.h"
+#include "NodePrefs.h"
+
+#include <helpers/TransportMode.h>
 
 class UITask : public AbstractUITask {
   DisplayDriver* _display;
@@ -63,6 +65,10 @@ class UITask : public AbstractUITask {
 
   void setCurrScreen(UIScreen* c);
 
+  static Transport::Mode defaultGetTransportMode() {
+    return Transport::Mode::Off;
+  }
+  
   // will be overridden by main.cpp and called to get the current transport mode label to put onto the display (e.g. "BLE", "USB", "WiFi")
   static const char* defaultGetTransportModeLabel()
   {
@@ -75,9 +81,11 @@ class UITask : public AbstractUITask {
   }
 
 public:
+  typedef Transport::Mode (*GetTransportModeFn)();
   typedef const char* (*GetTransportModeLabelFn)();
   typedef bool (*CycleTransportModeFn)();
 
+  GetTransportModeFn getTransportMode;
   GetTransportModeLabelFn getTransportModeLabel;
   CycleTransportModeFn cycleTransportMode;
 
@@ -86,7 +94,8 @@ public:
   // trigger cycling through transport modes when the user performs a long press on the button. I know it's
   // a bit hacky to have the UITask depend on functions defined in main.cpp, but it avoids having to pass
   // transport mode state around everywhere.
-  void setTransportModeHandlers(GetTransportModeLabelFn get_label, CycleTransportModeFn cycle_mode) {
+  void setTransportModeHandlers(GetTransportModeFn get_mode,GetTransportModeLabelFn get_label, CycleTransportModeFn cycle_mode) {
+    getTransportMode = get_mode ? get_mode : []() { return Transport::Mode::Off; };
     getTransportModeLabel = get_label ? get_label : defaultGetTransportModeLabel;
     cycleTransportMode = cycle_mode ? cycle_mode : defaultCycleTransportMode;
   }
@@ -95,6 +104,7 @@ public:
     next_batt_chck = _next_refresh = 0;
     ui_started_at = 0;
     curr = NULL;
+    getTransportMode = defaultGetTransportMode;
     getTransportModeLabel = defaultGetTransportModeLabel;
     cycleTransportMode = defaultCycleTransportMode;
   }

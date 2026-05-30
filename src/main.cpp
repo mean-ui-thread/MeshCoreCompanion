@@ -15,7 +15,7 @@ static uint32_t _atoi(const char* sp) {
   #if defined(QSPIFLASH)
     #include <CustomLFS_QSPIFlash.h>
     DataStore store(InternalFS, QSPIFlash, rtc_clock);
-  #else_atoi
+  #else
   #if defined(EXTRAFS)
     #include <CustomLFS.h>
     CustomLFS ExtraFS(0xD4000, 0x19000, 128);
@@ -53,6 +53,11 @@ MyMesh the_mesh(radio_driver, fast_rng, rtc_clock, tables, store
 );
 
 #ifdef DISPLAY_CLASS
+
+  static Transport::Mode uiGetTransportMode() {
+    return aio_interface.transportMode();
+  }
+
   static const char* uiGetTransportModeLabel() {
     return Transport::modeToStr(aio_interface.transportMode());
   }
@@ -168,7 +173,7 @@ aio_interface.beginUSB(Serial);
 #endif
 
 #ifdef DISPLAY_CLASS
-  ui_task.setTransportModeHandlers(uiGetTransportModeLabel, uiCycleTransportMode);
+  ui_task.setTransportModeHandlers(uiGetTransportMode, uiGetTransportModeLabel, uiCycleTransportMode);
   ui_task.begin(disp, &sensors, the_mesh.getNodePrefs());  // still want to pass this in as dependency, as prefs might be moved
 #endif
 }

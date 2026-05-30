@@ -1,7 +1,7 @@
 #include "UITask.h"
 #include <helpers/TxtDataHelpers.h>
 #include <helpers/PlatformSupport.h>
-#include "../MyMesh.h"
+#include <MyMesh.h>
 #include "target.h"
 #if SUPPORT_WIFI
   #include <WiFi.h>
@@ -212,7 +212,7 @@ public:
 
       #if SUPPORT_WIFI
       // Only display the IP address if we're in WiFi mode, to avoid confusion when in BLE mode (where IP is not relevant)
-      if (strcmp(_task->getTransportModeLabel(), "WiFi") == 0) {
+      if (_task->getTransportMode() == Transport::Mode::WIFI) {
         IPAddress ip = WiFi.localIP();
         snprintf(tmp, sizeof(tmp), "IP: %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
         display.setTextSize(1);
@@ -223,13 +223,13 @@ public:
         display.setColor(DisplayDriver::GREEN);
         display.setTextSize(1);
         display.drawTextCentered(display.width() / 2, 43, "< Connected >");
-
+      }
       #if SUPPORT_BLE
       // Only display the BLE PIN if 
       // 1. we're NOT connected, and 
       // 2. We're in BLE mode
       // This is to avoid confusion when in WiFi mode (where BLE PIN is not relevant)
-      } else if (strcmp(_task->getTransportModeLabel(), "BLE") == 0 && the_mesh.getBLEPin() != 0) { // BT pin
+      else if (_task->getTransportMode() == Transport::Mode::BLE && the_mesh.getBLEPin() != 0) { // BT pin
         display.setColor(DisplayDriver::RED);
         display.setTextSize(2);
         sprintf(tmp, "Pin:%d", the_mesh.getBLEPin());
